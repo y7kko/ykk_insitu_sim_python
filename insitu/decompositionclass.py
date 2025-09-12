@@ -11,7 +11,7 @@ import sys
 # from progress.bar import Bar, IncrementalBar, FillingCirclesBar, ChargingBar
 #from tqdm._tqdm_notebook import tqdm
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
-#import cvxpy as cp
+import cvxpy as cp
 # from scipy import linalg # for svd
 # from scipy import signal
 from scipy.sparse.linalg import lsqr, lsmr
@@ -22,7 +22,7 @@ from receivers import Receiver
 from material import PorousAbsorber
 from controlsair import cart2sph, sph2cart, cart2sph, update_progress, compare_alpha, compare_zs
 from rayinidir import RayInitialDirections
-#from parray_estimation import octave_freq, octave_avg, get_hemispheres, get_inc_ref_dirs
+from parray_estimation import octave_freq, octave_avg, get_hemispheres, get_inc_ref_dirs
 
 # SMALL_SIZE = 11
 # BIGGER_SIZE = 13
@@ -244,6 +244,7 @@ class Decomposition(object):
             # compute the regularization parameter (L-curve)
             # lambd_value = lc.l_cuve(u, sig, pm, plotit=plot_l)
             #lambd_value = lc.gcv_lambda(u, sig, pm, print_gcvfun = plot_l)
+
             lambd_value = self.regu_par_fun(u, sig, pm, plot_l)
             self.lambd_value_vec[jf] = lambd_value
             # lambd_value = lc.ncp(u, sig, pm, method='Tikh', printncp = plot_l)
@@ -495,8 +496,8 @@ class Decomposition(object):
             travel : bool
                 Whether to plot travel direction or arrival direction. Default is True
         """
-        id_f = np.where(self.controls.freq <= freq)
-        id_f = id_f[0][-1]
+        id_f = np.where(self.controls.freq <= freq) 
+        id_f = id_f[0][-1] # Indice do valor mais proximo de freq
         fig = plt.figure()
         ax = plt.axes(projection ="3d")
         vmin = 0

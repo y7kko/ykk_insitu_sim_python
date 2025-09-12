@@ -71,6 +71,11 @@ def curvature(lambd, sig, beta, xi):
         curv : numpy 1darray
             negative curvature
     """
+
+    # Gambiarra pois scipy.optimize.fminbound() requer compatibilidade com escalares
+    if np.isscalar(lambd):
+        lambd = np.array([lambd])
+
     # Initialization.
     phi = np.zeros(lambd.shape)
     dphi = np.zeros(lambd.shape)
@@ -163,19 +168,13 @@ def l_corner(rho,eta,reg_param,u,sig,bm):
     
     # Minimize 1
     curv_id = np.argmin(curv)
-    x1 = reg_param[int(np.amin([curv_id+1, len(curv)-1]))]
-    x2 = reg_param[int(np.amax([curv_id-1, 0]))]
-    # print(x1)
-    # print(x1.shape)
+    x1 = reg_param[int(np.amin([curv_id+1, len(curv)-1]))][0] #O vetor estava dentro de um vetor
+    x2 = reg_param[int(np.amax([curv_id-1, 0]))][0]
     # x1 = reg_param[int(np.amin([curv_id+1, len(curv)]))]
     # x2 = reg_param[int(np.amax([curv_id-1, 0]))]
     # Minimize 2 - set tolerance first (new versions of scipy need that)
-    tolerance_array = np.zeros(len(x1)+len(x2)+1)
-    tolerance_array[0:len(x1)] = x1.flatten()
-    tolerance_array[len(x1):len(x1)+len(x2)] = x2.flatten()
-    tolerance_array[-1] = 1e-5
-    # print(tolerance_array)
-    tolerance = np.amin(tolerance_array)#np.amin([x1/50, x2/50, 1e-5])
+    tolerance = np.amin([x1/50, x2/50, 1e-5])
+    # print(f"Tolerancia de fminbound = {tolerance}")
     reg_c = optimize.fminbound(curvature, x1, x2, args = (sig, beta, xi), xtol=tolerance,
         full_output=False, disp=False)
     kappa_max = - curvature(reg_c, sig, beta, xi) # Maximum curvature.
@@ -672,7 +671,7 @@ def ridge_solver(h_mtx,bm,lambd_value):
     # p2 = np.zeros(2*len(bm))
     # p2[0:len(bm)] = bm.real
     # p2[len(bm):] = bm.imag
-    np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
+    # np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning) #isso aparentemente não existe?
     H2 = np.vstack((np.hstack((h_mtx.real, -h_mtx.imag)),
         np.hstack((h_mtx.imag, h_mtx.real))))
     p2 = np.vstack((bm.real,bm.imag)).flatten()

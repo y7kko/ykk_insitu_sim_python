@@ -8,13 +8,13 @@ import scipy as spy
 from sklearn.linear_model import Ridge
 import time
 import sys
-#from progress.bar import Bar, IncrementalBar, FillingCirclesBar, ChargingBar
+from progress.bar import Bar, IncrementalBar, FillingCirclesBar, ChargingBar
 #from tqdm._tqdm_notebook import tqdm
 from tqdm import tqdm
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
-#import cvxpy as cp
+import cvxpy as cp
 from scipy import linalg # for svd
-from lcurve_functions import csvd, l_cuve
+from lcurve_functions import csvd, l_curve
 import pickle
 from receivers import Receiver
 from material import PorousAbsorber
