@@ -4,6 +4,7 @@ Created on Fri Sep  9 09:56:44 2022
 
 @author: ericb
 """
+import warnings
 import pickle
 import sys
 import numpy as np
@@ -12,8 +13,11 @@ import matplotlib.tri as mtri
 import matplotlib as mpl
 from scipy.interpolate import griddata
 from controlsair import cart2sph, sph2cart
-import gmsh
-import meshio
+try:
+    import gmsh
+    import meshio
+except:
+    warnings.warn("gmsh ou meshio não instalado, algumas funções podem não funcionar como o esperado")
 
 import plotly.express as px
 import plotly.graph_objects as go
@@ -25,11 +29,12 @@ from plotly.subplots import make_subplots
 
 from PIL import Image, ImageChops
 import io
-
-import PyPDF2
-import pdf2image 
-# from PyPDF2 import PdfReader, PdfWriter
-
+try:
+    import PyPDF2
+    import pdf2image 
+    # from PyPDF2 import PdfReader, PdfWriter
+except:
+    warnings.warn("PyPDF2 ou pdf2image não instalado, algumas funções podem não funcioanr como esperado")
 # from receivers import Receiver
 import receivers
 

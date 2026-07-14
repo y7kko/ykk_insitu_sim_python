@@ -448,7 +448,7 @@ class Receiver():
         np.random.seed(seed)
         xc = -x_len/2 + x_len * np.random.rand(n_total)#np.linspace(-x_len/2, x_len/2, n_x)
         yc = -y_len/2 + y_len * np.random.rand(n_total)
-        zc = zr + z_len * np.random.rand(n_total) - z_len/2 # zc estava variando entre zr e zr+z_len
+        zc = zr + z_len * np.random.rand(n_total) -z_len/2 # zc estava variando entre zr e zr+z_len
         # initialize receiver list in memory
         self.coord = np.zeros((n_total, 3), dtype = np.float32)
         self.coord[0:n_total, 0] = xc.flatten()

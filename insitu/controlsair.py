@@ -85,7 +85,7 @@ class AirProperties():
         # Air absorption in [1/m]
         self.m = (1/100) * a_ps_ar * patm_atm \
             / (10 * np.log10(np.exp(1)))
-        # return self.m
+        return self.m
 
 
 class AlgControls():
@@ -357,8 +357,8 @@ def cart2sph(x,y,z):
     Inputs:
         x, y, z - cartesian coordinates over the sphere
     '''
-    # phi = np.arctan2(y,z) # azimuth
     # theta = np.arctan2(np.sqrt(z**2 + y**2), x) # elevation
+    # phi = np.arctan2(y,z) # azimuth
     # r = np.sqrt(x**2 + y**2 + z**2)
     ## Same as Matlab
     phi = np.arctan2(y,x) # azimuth

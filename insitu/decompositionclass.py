@@ -23,7 +23,13 @@ from material import PorousAbsorber
 from controlsair import cart2sph, sph2cart, cart2sph, update_progress, compare_alpha, compare_zs
 from rayinidir import RayInitialDirections
 from parray_estimation import octave_freq, octave_avg, get_hemispheres, get_inc_ref_dirs
-
+from controlsair import AirProperties, AlgControls#, add_noise, add_noise2
+try:
+    import dagshub
+    _dagshub_enabled = True 
+    print("DAGSHUB ENABLED")
+except:
+    _dagshub_enabled = False
 # SMALL_SIZE = 11
 # BIGGER_SIZE = 13
 # #plt.rcParams.update({'font.size': 10})
@@ -120,7 +126,7 @@ class Decomposition(object):
         Load a simulation object.
     """
 
-    def __init__(self, p_mtx = None, controls = None, material = None, receivers = None,
+    def __init__(self, p_mtx = None, controls:AlgControls = None, material = None, receivers:Receiver = None,
                  regu_par = 'L-curve'):
         """
 
@@ -143,6 +149,11 @@ class Decomposition(object):
         self.receivers = receivers
         self.pres_s = p_mtx
         self.flag_oct_interp = False
+
+        # BRUNO
+        self.last_computed_index = 0
+
+
         if regu_par == 'L-curve' or regu_par == 'l-curve':
             self.regu_par_fun = lc.l_curve
             print("You choose L-curve to find optimal regularization parameter")
@@ -194,9 +205,220 @@ class Decomposition(object):
             ax.set_xticks([])
             ax.set_yticks([])
             ax.set_zticks([])
-            plt.show()
+            # plt.show()
 
     def pk_tikhonov(self, method = 'direct', plot_l = False):
+        """ Wave number spectrum estimation using Tikhonov inversion
+
+        Estimate the wave number spectrum using regularized Tikhonov inversion.
+        The choice of the regularization parameter is baded on the L-curve criterion.
+        This sound field is modelled by a set of propagating waves. This
+        method is an adaptation of DTU methods, implemented in:
+            Mélanie Nolan. Estimation of angle-dependent absorption coefficients 
+            from spatially distributed in situ measurements , J Acoust Soc Am (EL).
+            2019 147(2):EL119-EL124. doi: 10.1121/10.0000716 
+
+        The inversion steps are: (i) - Get the scaled version of the propagating directions;
+        (ii) - form the sensing matrix; (iii) - compute SVD of the sensing matix;
+        (iv) - compute the regularization parameter (L-curve); (vii) - matrix inversion.
+
+        Parameters
+        ----------
+        method : str
+            Determines which method to use to compute the pseudo-inverse.
+                'direct' (default) - analytical solution - fastest, but maybe
+                inacurate on noiseless situations. The following uses optimization 
+                algorithms
+                'scipy' - uses scipy.linalg.lsqr (sparse matrix) -fast but less acurate
+                'Ridge - uses sklearn Ridge regression - slower, but accurate.
+                'cvx' - uses cvxpy - slower, but accurate.
+        plot_l : bool
+            Whether to plot the L-curve or not. Default is false.
+        """
+        self.decomp_type = 'Tikhonov (transparent array)'
+        bar = tqdm(total = len(self.controls.k0), desc = 'Calculating Tikhonov inversion...')
+        # Initialize variables
+        self.pk = np.zeros((self.n_waves, len(self.controls.k0)), dtype=complex)
+        self.lambd_value_vec = np.zeros(len(self.controls.k0))
+        self.cond_num = np.zeros(len(self.controls.k0))
+        # loop over frequencies
+        for jf, k0 in enumerate(self.controls.k0):
+            # get the scaled version of the propagating directions
+            k_vec = k0 * self.dir
+            # Form the sensing matrix
+            h_mtx = np.exp(-1j*self.receivers.coord @ k_vec.T)
+            self.cond_num[jf] = np.linalg.cond(h_mtx)
+            # measured data
+            pm = self.pres_s[:,jf].astype(complex)
+            # compute SVD of the sensing matix
+            u, sig, v = lc.csvd(h_mtx)
+            # compute the regularization parameter (L-curve)
+            # lambd_value = lc.l_cuve(u, sig, pm, plotit=plot_l)
+            # lambd_value = lc.gcv_lambda(u, sig, pm, print_gcvfun = plot_l)
+
+            lambd_value = self.regu_par_fun(u, sig, pm, plot_l)
+            self.lambd_value_vec[jf] = lambd_value
+            # lambd_value = lc.ncp(u, sig, pm, method='Tikh', printncp = plot_l)
+            ## Choosing the method to find the P(k)
+            if method == 'scipy':
+                x = lsqr(h_mtx, self.pres_s[:,jf], damp=lambd_value)
+                self.pk[:,jf] = x[0]
+            elif method == 'direct':
+                Hm = np.matrix(h_mtx)
+                self.pk[:,jf] = Hm.getH() @ np.linalg.inv(Hm @ Hm.getH() + (lambd_value**2)*np.identity(len(pm))) @ pm
+            elif method == 'Ridge':
+                x = lc.ridge_solver(h_mtx,pm,lambd_value)
+                self.pk[:,jf] = x
+            elif method == 'Tikhonov':
+                x = lc.tikhonov(u,sig,v,pm,lambd_value)
+                self.pk[:,jf] = x
+            elif method == 'cvx':
+                x = lc.cvx_tikhonov(h_mtx.astype(complex), pm, lambd_value, l_norm = 2)
+                self.pk[:,jf] = x
+            bar.update(1)
+        bar.close()
+        return self.pk
+    
+    def pk_tikhonov_colab(self, method = 'direct', plot_l = False,
+                          save_every:int =0, save_kw:dict={},cached:bool=True,cloud_kw:dict={}):
+        """ Wave number spectrum estimation using Tikhonov inversion
+
+        Estimate the wave number spectrum using regularized Tikhonov inversion.
+        The choice of the regularization parameter is baded on the L-curve criterion.
+        This sound field is modelled by a set of propagating waves. This
+        method is an adaptation of DTU methods, implemented in:
+            Mélanie Nolan. Estimation of angle-dependent absorption coefficients 
+            from spatially distributed in situ measurements , J Acoust Soc Am (EL).
+            2019 147(2):EL119-EL124. doi: 10.1121/10.0000716 
+
+        The inversion steps are: (i) - Get the scaled version of the propagating directions;
+        (ii) - form the sensing matrix; (iii) - compute SVD of the sensing matix;
+        (iv) - compute the regularization parameter (L-curve); (vii) - matrix inversion.
+
+        Parameters
+        ----------
+        method : str
+            Determines which method to use to compute the pseudo-inverse.
+                'direct' (default) - analytical solution - fastest, but maybe
+                inacurate on noiseless situations. The following uses optimization 
+                algorithms
+                'scipy' - uses scipy.linalg.lsqr (sparse matrix) -fast but less acurate
+                'Ridge - uses sklearn Ridge regression - slower, but accurate.
+                'cvx' - uses cvxpy - slower, but accurate.
+        plot_l : bool
+            Whether to plot the L-curve or not. Default is false.
+        """
+        self.decomp_type = 'Tikhonov (transparent array)'
+        
+        if _dagshub_enabled:
+            mount_path = dagshub.storage.mount(cloud_kw['repo'])
+            mount_path = str(mount_path)
+            dagshub_upload = (
+                lambda : dagshub.upload_files(**{
+                    **{'commit_message':f'Checkpoint: {self.last_computed_index}pt',
+                       'quiet': True},
+                    **cloud_kw
+                    })
+            )
+        else:
+            dagshub_upload = (lambda : None)
+
+        if cached:
+            try:
+                print("loading last session...")
+
+                if _dagshub_enabled:
+                    print("Searching for dagshub backups...")
+                    # mount_path = dagshub.storage.mount(cloud_kw['repo'])
+                    # mount_path = str(mount_path)
+
+                    self.load(save_kw['filename'],
+                              path=f'{mount_path}/')                    
+                    print('Loaded from dagshub!!')
+                else:
+                    print("Searching for local backups...")
+                    self.load(**save_kw)
+                    print('Loaded Locally!!')
+
+                # bar.update(self.last_computed_index+1)
+            except:
+                print("cache not found...")
+                cached = False #cache not found
+
+        # if cache not found and pk is not initialized 
+        if not cached and not hasattr(self,'pk'):
+            print("initializing new arrays")
+            self.pk = np.zeros((self.n_waves, len(self.controls.k0)), dtype=complex)
+            self.lambd_value_vec = np.zeros(len(self.controls.k0))
+            self.cond_num = np.zeros(len(self.controls.k0))
+            self.last_computed_index = -1
+
+        # if regu_mode == 'lcurve':
+        #     regu_fun = self.regu_par_fun
+        # elif regu_mode == 'gcv':
+        #     regu_fun = lc.gcv_lambda
+        # elif regu_mode == 'lc_lcurve':
+        #     regu_fun = lc.l_curve
+        # print(regu_mode)
+    
+        print(f"starting from idx = {self.last_computed_index}")
+        bar = tqdm(total = len(self.controls.k0), 
+                   desc = 'Calculating Tikhonov inversion...')
+        bar.update(np.clip(self.last_computed_index, 0, len(self.controls.k0)))
+        
+        for jf, k0 in enumerate(self.controls.k0):
+            if jf<= self.last_computed_index:
+                continue
+
+            # get the scaled version of the propagating directions
+            k_vec = k0 * self.dir
+            # Form the sensing matrix
+            h_mtx = np.exp(-1j*self.receivers.coord @ k_vec.T)
+            self.cond_num[jf] = np.linalg.cond(h_mtx)
+            # measured data
+            pm = self.pres_s[:,jf].astype(complex)
+            # compute SVD of the sensing matix
+            u, sig, v = lc.csvd(h_mtx)
+            # compute the regularization parameter (L-curve)
+            
+            lambd_value = self.regu_par_fun(u, sig, pm, plot_l)
+            # lambd_value = regu_fun(u, sig, pm, plot_l)
+            self.lambd_value_vec[jf] = lambd_value
+            # lambd_value = lc.ncp(u, sig, pm, method='Tikh', printncp = plot_l)
+
+            ## Choosing the method to find the P(k)
+            if method == 'scipy':
+                x = lsqr(h_mtx, self.pres_s[:,jf], damp=lambd_value)[0]
+            elif method == 'direct':
+                Hm = np.matrix(h_mtx)
+                x = Hm.getH() @ np.linalg.inv(Hm @ Hm.getH() + (lambd_value**2)*np.identity(len(pm))) @ pm
+            elif method == 'Ridge':
+                x = lc.ridge_solver(h_mtx,pm,lambd_value)
+            elif method == 'Tikhonov':
+                x = lc.tikhonov(u,sig,v,pm,lambd_value)
+            elif method == 'cvx':
+                x = lc.cvx_tikhonov(h_mtx.astype(complex), pm, lambd_value, l_norm = 2)
+            self.pk[:,jf] = x
+            
+            if save_every and ((jf % save_every) == 0):
+                bar.set_description("Saving checkpoint...")
+                self.last_computed_index = jf
+                self.save(**save_kw)
+                dagshub_upload()
+                bar.set_description('Calculating Tikhonov inversion...')
+            
+            bar.update(1)
+
+        bar.set_description('Saving last iteration...')
+        self.last_computed_index = jf
+        self.save(**save_kw)
+        dagshub_upload()
+        bar.close()
+
+        return self.pk
+
+
+    def pk_tikhonov_faster(self, method = 'direct', plot_l = False):
         """ Wave number spectrum estimation using Tikhonov inversion
 
         Estimate the wave number spectrum using regularized Tikhonov inversion.
@@ -249,21 +471,10 @@ class Decomposition(object):
             self.lambd_value_vec[jf] = lambd_value
             # lambd_value = lc.ncp(u, sig, pm, method='Tikh', printncp = plot_l)
             ## Choosing the method to find the P(k)
-            if method == 'scipy':
-                x = lsqr(h_mtx, self.pres_s[:,jf], damp=lambd_value)
-                self.pk[:,jf] = x[0]
-            elif method == 'direct':
-                Hm = np.matrix(h_mtx)
-                self.pk[:,jf] = Hm.getH() @ np.linalg.inv(Hm @ Hm.getH() + (lambd_value**2)*np.identity(len(pm))) @ pm
-            elif method == 'Ridge':
-                x = lc.ridge_solver(h_mtx,pm,lambd_value)
-                self.pk[:,jf] = x
-            elif method == 'Tikhonov':
-                x = lc.tikhonov(u,sig,v,pm,lambd_value)
-                self.pk[:,jf] = x
-            elif method == 'cvx':
-                x = lc.cvx_tikhonov(h_mtx.astype(complex), pm, lambd_value, l_norm = 2)
-                self.pk[:,jf] = x
+            
+            x = lc.ridge_solver(h_mtx,pm,lambd_value)
+            self.pk[:,jf] = x
+            
             bar.update(1)
         bar.close()
         return self.pk
