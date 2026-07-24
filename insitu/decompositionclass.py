@@ -17,6 +17,7 @@ import cvxpy as cp
 from scipy.sparse.linalg import lsqr, lsmr
 # from lcurve_functions import csvd, l_cuve, tikhonov, ridge_solver, direct_solver
 import lcurve_functions as lc
+import yk_lcurve_functions as ylc
 import pickle
 from receivers import Receiver
 from material import PorousAbsorber
@@ -127,7 +128,7 @@ class Decomposition(object):
     """
 
     def __init__(self, p_mtx = None, controls:AlgControls = None, material = None, receivers:Receiver = None,
-                 regu_par = 'L-curve'):
+                 regu_par = 'L-curve',regu_kw:dict=None):
         """
 
         Parameters
@@ -154,12 +155,16 @@ class Decomposition(object):
         self.last_computed_index = 0
 
 
-        if regu_par == 'L-curve' or regu_par == 'l-curve':
+        if regu_par.lower() == 'L-curve':
             self.regu_par_fun = lc.l_curve
             print("You choose L-curve to find optimal regularization parameter")
-        elif regu_par == 'gcv' or regu_par == 'GCV':
+        elif regu_par.lower() == 'gcv':
             self.regu_par_fun = lc.gcv_lambda
             print("You choose GCV to find optimal regularization parameter")
+        elif regu_par.lower() == 'ylcurve':
+            self.regu_par_fun = ylc.l_curve
+            ylc.set_module_options(**regu_kw)
+            print(f"You choose (ykk) L-curve thresh={ylc._reguparam_thresh}")        
         else:
             self.regu_par_fun = lc.l_curve
             print("Returning to default L-curve to find optimal regularization parameter")
