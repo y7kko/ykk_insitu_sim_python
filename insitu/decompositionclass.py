@@ -128,7 +128,7 @@ class Decomposition(object):
     """
 
     def __init__(self, p_mtx = None, controls:AlgControls = None, material = None, receivers:Receiver = None,
-                 regu_par = 'L-curve',regu_kw:dict=None):
+                 regu_par = 'L-curve',regu_kw:dict={}):
         """
 
         Parameters
