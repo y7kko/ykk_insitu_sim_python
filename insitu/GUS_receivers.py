@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy
 from collections import defaultdict
 #from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 #from mpl_toolkits.mplot3d import Axes3D
@@ -449,7 +448,7 @@ class Receiver():
         np.random.seed(seed)
         xc = -x_len/2 + x_len * np.random.rand(n_total)#np.linspace(-x_len/2, x_len/2, n_x)
         yc = -y_len/2 + y_len * np.random.rand(n_total)
-        zc = zr + z_len * np.random.rand(n_total) -z_len/2 # zc estava variando entre zr e zr+z_len
+        zc = zr + z_len * np.random.rand(n_total)
         # initialize receiver list in memory
         self.coord = np.zeros((n_total, 3), dtype = np.float32)
         self.coord[0:n_total, 0] = xc.flatten()
@@ -681,136 +680,6 @@ class Receiver():
         self.coord = np.zeros((n_recs, 3), dtype = np.float32)
         self.coord[:, 0], self.coord[:, 1], self.coord[:, 2] =\
             sph2cart(radius, thetas, 0)
-            
-    def tetrahedron(self, radius = 1, center = [0,0,0]):
-        """ tetrahedron array
-        """
-        ps = PlatonicSampler()
-        ps.tetrahedron()
-        self.coord = ps.verts*radius + np.array(center)
-        
-    def octahedron(self, radius = 1, center = [0,0,0]):
-        """ octahedron array
-        """
-        ps = PlatonicSampler()
-        ps.octahedron()
-        self.coord = ps.verts*radius + np.array(center)
-    
-    def cube(self, radius = 1, center = [0,0,0]):
-        """ octahedron array
-        """
-        ps = PlatonicSampler()
-        ps.cube()
-        self.coord = ps.verts*radius + np.array(center)
-        
-    def dodecahedron(self, radius = 1, center = [0,0,0]):
-        """ octahedron array
-        """
-        ps = PlatonicSampler()
-        ps.dodecahedron()
-        self.coord = ps.verts*radius + np.array(center)
-    
-    def icosahedron(self, radius = 1, center = [0,0,0]):
-        """ octahedron array
-        """
-        ps = PlatonicSampler()
-        ps.icosahedron()
-        self.coord = ps.verts*radius + np.array(center)
-            
-    def semigaussian_sphere(self, radius = 1, delta_theta_deg = 4,
-                            hemispherical = False):
-        """ Initializes a semi gaussian spherical array of receivers.
-        
-        Parameters
-        ----------
-            radius : float
-                the radius of the sphere
-            delta_theta_deg: float
-                angle separation of points on elevation                
-        """
-        theta_deg = np.arange(start = 0, stop = 180+delta_theta_deg, step = delta_theta_deg)
-        theta_deg = theta_deg[theta_deg <= 180]
-        n_theta = len(theta_deg)
-        # print(theta_deg)
-        x_list = []
-        y_list = []
-        z_list = []
-        for the_d in theta_deg:
-            n_phi = int(np.ceil(2*n_theta*np.sin(np.deg2rad(the_d))))
-            if n_phi == 0:
-                x,y,z = sph2cart(radius, np.deg2rad(90-the_d), 0)
-            else:
-                phi_deg = np.linspace(start = 0, stop = 360, num = n_phi)
-                theta_d = the_d * np.ones(len(phi_deg))
-                radii = radius * np.ones(len(phi_deg))
-                x,y,z = sph2cart(radii, np.deg2rad(90-theta_d), np.deg2rad(phi_deg))
-            x_list.append(x)
-            y_list.append(y)
-            z_list.append(z)
-        
-        x_coord = np.hstack(x_list)
-        y_coord = np.hstack(y_list)
-        z_coord = np.hstack(z_list)
-        
-        self.coord = np.zeros((len(x_coord), 3))
-        self.coord[:len(x_coord),0], self.coord[:len(x_coord),1], self.coord[:len(x_coord),2] =\
-            x_coord, y_coord, z_coord
-        self.coord = np.unique(self.coord, axis = 0)        
-        # Mesh
-        if not hemispherical:
-            tri = scipy.spatial.ConvexHull(self.coord)
-            self.connectivities = tri.simplices
-        else:
-            self.coord = self.coord[self.coord[:,2]>=0]
-            tri = scipy.spatial.ConvexHull(self.coord)
-            self.connectivities = tri.simplices
-            v0 = self.coord[self.connectivities[:, 0]]
-            v1 = self.coord[self.connectivities[:, 1]]
-            v2 = self.coord[self.connectivities[:, 2]]
-            # Centroids
-            centroids = (v0 + v1 + v2) / 3.0
-            #Keep triangles whose centers are above the floor (e.g., z > 0.001)
-            tolerance = 0.01 
-            self.connectivities =\
-                self.connectivities[centroids[:, 2] > 0]
-        
-        # self.connectivity_correction()
-        self.compute_normals()
-        self.correct_normals()
-        self.compute_triangle_areas()
-        self.compute_all_triangle_angles()
-
-    def isospherical_array(self, radius = 1, n_rec_target = 32):
-        """ Initializes a iso-spherical array of receivers (icosahedron).
-
-        Receiver hemisphere with a given radius and target number of receivers.
-        you might get more. 
-        The method will overwrite self.coord to be a matrix where each line
-        gives a 3D coordinate for each receiver
-
-        Parameters
-        ----------
-            radius : float
-                the radius of the sphere
-            n-rec : int
-                the number of receivers in the array
-        """
-        directions = RayInitialDirections()
-        directions, n_sph, elements = directions.isotropic_rays(Nrays = int(n_rec_target))
-        # elements = directions.indices
-        # self.id_dir = id_dir
-        self.coord = np.copy(directions)
-        # self.pdir_all = np.copy(directions)
-        # self.n_prop = len(self.coord[:,0])
-        self.connectivities = np.copy(elements)
-        # self.connectivity_correction()
-        r, theta, phi = cart2sph(self.coord[:,0], self.coord[:,1], self.coord[:,2])
-        r = radius*r
-        self.coord[:,0], self.coord[:,1], self.coord[:,2] = sph2cart(r,theta,phi)
-        self.compute_normals()
-        self.correct_normals()
-        self.compute_triangle_areas()
-        self.compute_all_triangle_angles()             
 
     def hemispherical_array(self, radius = 1, n_rec_target = 32):
         """ Initializes a hemispherical array of receivers (icosahedron).
@@ -998,7 +867,37 @@ class Receiver():
                 used_edges.add(eq_edge)
                 used_edges.update(connecting_edges)
         
-        return new_triangles    
+        return new_triangles
+
+    # def group_edges_into_loops(self, edges):
+    #     """Group open edges into loops."""
+    #     loops = []
+    #     while edges:
+    #         loop = []
+    #         edge = edges.pop(0)
+    #         loop.extend(edge)
+    #         while True:
+    #             next_edge = next((e for e in edges if loop[-1] in e), None)
+    #             if not next_edge:
+    #                 break
+    #             edges.remove(next_edge)
+    #             loop.append(next_edge[1] if next_edge[0] == loop[-1] else next_edge[0])
+    #         loops.append(loop)
+    #     return loops
+
+    # def fill_holes(self, loops):
+    #     """Fill holes by creating triangles for each loop."""
+    #     new_triangles = []
+    #     for loop in loops:
+    #         # Assume at least two points are on the equator (z = 0)
+    #         equator_pts = [v for v in loop if self.coord[v][2] == 0]
+    #         for i in range(len(equator_pts) - 1):
+    #             v1, v2 = equator_pts[i], equator_pts[i + 1]
+    #             # Find the closest non-equator vertex in the loop
+    #             non_equator_pts = [v for v in loop if v not in equator_pts]
+    #             closest_pt = min(non_equator_pts, key=lambda v: np.linalg.norm(self.coord[v] - self.coord[v1]))
+    #             new_triangles.append([v1, v2, closest_pt])
+    #     return new_triangles
     
     def round_array(self, num_of_dec_cases = 3):
         """ Round the coordinates of the array
@@ -1260,6 +1159,10 @@ class Receiver():
             rec_plane_list.append(self.coord[id_get, :])
         return rec_plane_list
 
+
+        
+    
+    
     def plot_array(self, x_lim = [-1,1], y_lim = [-1,1], z_lim = [0, 1]):
         """ plot the array coordinates as dots in space
         """
@@ -1282,34 +1185,6 @@ class Receiver():
         #ax.view_init(elev=elev, azim=azim)
         plt.tight_layout()
         plt.show()
-        
-    def plot_array_mesh(self, x_lim = [-1,1], y_lim = [-1,1], z_lim = [-1, 1]):
-        """ plot the array mesh - for testing
-        """
-        fig = plt.figure(figsize=(7, 5))
-        ax = fig.add_subplot(111, projection='3d')
-
-        # Pass the custom triangles array into the trisurf method
-        ax.scatter(self.coord[:, 0], self.coord[:, 1], self.coord[:, 2], 
-                    marker='o', s=12, color='blue', alpha = 0.7)
-        surf = ax.plot_trisurf(self.coord[:,0], self.coord[:,1],
-                               self.coord[:,2], 
-                               triangles = self.connectivities, 
-                               edgecolor='black', # Outlines the triangular mesh boundaries
-                               linewidth=0.5,        # Adjusts thickness of the triangular grid lines
-                               alpha=1.0             # Sets transparency level
-        )
-
-        # 4. Final adjustments
-        ax.set_xlabel(r'$x$ [m]')
-        ax.set_xlabel(r'$y$ [m]')
-        ax.set_xlabel(r'$z$ [m]')
-        ax.grid(False)
-        ax.set_xlim((x_lim[0], x_lim[1]))
-        ax.set_ylim((y_lim[0], y_lim[1]))
-        ax.set_zlim((z_lim[0], z_lim[1]))
-        #ax.view_init(elev=elev, azim=azim)
-        plt.tight_layout()
 
     def save(self, filename = 'qdt', path = ''):
         """ To save the decomposition object as pickle
@@ -1323,45 +1198,3 @@ class Receiver():
         It will overwrite the empty object.
         """
         utils_insitu.load(self, filename = filename, path = path)   
-        utils_insitu.load(self, filename = filename, path = path)
-        
-class PlatonicSampler():
-    """ Create spherical arrays based on platonic solids
-    """
-    def __init__(self,):
-        pass
-    
-    def tetrahedron(self,):
-        self.verts = np.array([[ 1,1,1], [-1,-1,1],
-                               [-1,1,-1], [1,-1,-1]], dtype=float)
-        self.verts /= np.linalg.norm(self.verts, axis=1)[:, None]
-        
-    def octahedron(self,):
-        self.verts = np.array([[ 1,0,0], [-1,0,0], [0, 1,0],
-                               [0,-1,0], [0,0, 1], [0,0,-1]], dtype=float)
-        
-    def cube(self,):
-        self.verts = np.array([[-1,-1,-1], [-1,-1, 1], [-1, 1,-1],
-                               [-1, 1, 1], [ 1,-1,-1], [ 1,-1, 1],
-                               [ 1, 1,-1], [ 1, 1, 1]], dtype=float)
-        self.verts /= np.linalg.norm(self.verts, axis=1)[:, None]
-        
-    def dodecahedron(self,):
-        phi = (1 + np.sqrt(5)) / 2
-        self.verts = np.array([[0,1,phi], [0,-1,phi], [0,1,-phi],
-                               [0,-1,-phi], [1,phi,0], [-1,phi,0],
-                               [1,-phi,0], [-1,-phi,0], [phi,0, 1],
-                               [phi,0,-1], [-phi,0,1], [-phi,0,-1]], dtype=float)
-        self.verts /= np.linalg.norm(self.verts, axis=1)[:, None]
-        
-    def icosahedron(self,):
-        phi = (1 + np.sqrt(5)) / 2
-        a = 1/phi
-        self.verts = np.array([[1,1,1], [1,1,-1], [1,-1,1],
-                               [1, -1,-1], [-1,1,1], [-1,1,-1],
-                               [-1,-1,1], [-1,-1,-1], 
-                               [0,a,phi], [0,a,-phi], [0,-a,phi],
-                               [0,-a,-phi], [a,phi,0], [a,-phi,0],
-                               [-a,phi,0], [-a,-phi,0], [phi,0,a],
-                               [phi,0,-a], [-phi,0,a], [-phi,0,-a]], dtype=float)
-        self.verts /= np.linalg.norm(self.verts, axis=1)[:, None]

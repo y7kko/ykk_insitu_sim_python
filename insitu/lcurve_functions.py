@@ -53,6 +53,27 @@ def csvd(A):
         u = np.conjugate(u.T)
     return u, sig, v
 
+def gram_matrix(A):
+    """ Computes Gram matrix of A
+    
+    Allows one to analyze if A has many correlated columns or not. Valid for
+    complex matrices. Scales from 0 to 1.
+    """
+    # Compute L2 norm of each row vector
+    col_norms = np.linalg.norm(A, axis=0, keepdims=True)
+    # Avoid division by zero for zero-columns
+    col_norms[col_norms == 0] = 1.0 # numerical trick for zero-th norm cols.
+    A_normalized = A / col_norms
+    # Gram matrix
+    gram_mtx = A_normalized.conj().T @ A_normalized
+    # Take the absolute values
+    abs_gram = np.abs(gram_mtx)
+    # Fill the diagonal with zeros to satisfy i != j
+    np.fill_diagonal(abs_gram, 0.0)
+    # Find the maximum value
+    cohe = np.max(abs_gram)
+    return gram_mtx, cohe
+    
 def curvature(lambd, sig, beta, xi):
     """ computes the NEGATIVE of the curvature.
 
@@ -189,7 +210,7 @@ def l_corner(rho,eta,reg_param,u,sig,bm):
         rho_c = np.linalg.norm((1-f) * beta[0:len(f)])
         if Nm > Nu:
             rho_c = np.sqrt(rho_c ** 2 + np.linalg.norm(b0)**2)
-    return reg_c, reg_param, curv
+    return reg_c, reg_param, curv, rho_c, eta_c
 
 def l_curve(u, sig, bm, plotit = False):
     """ Find the optimal regularizatin parameter.
@@ -242,12 +263,13 @@ def l_curve(u, sig, bm, plotit = False):
     if (Nm > Nu and beta2 > 0):
         rho = np.sqrt(rho ** 2 + beta2)
     # Compute the corner of the L-curve (optimal regularization parameter)
-    lam_opt, reg_param, curv = l_corner(rho,eta,reg_param,u,sig,bm)
+    lam_opt, reg_param, curv, rho_c, eta_c = l_corner(rho,eta,reg_param,u,sig,bm)
     # want to plot the L curve?
     if plotit:
-        fig = plt.figure(figsize = (6,4))
+        fig = plt.figure(figsize = (6,3))
         # fig.canvas.set_window_title("L-curve")
         plt.loglog(rho, eta)
+        plt.loglog(rho_c, eta_c, '*r')
         plt.title('Reg. par: ' + "%.6f" % lam_opt)
         plt.xlabel(r'Residual norm $||Ax - b||_2$')
         plt.ylabel(r'Solution norm $||x||_2$')
@@ -330,7 +352,7 @@ def gcv_lambda(u,s,bm, print_gcvfun = False):
     # print(minG)
     #print(G)
     if print_gcvfun:
-        plt.figure(figsize = (6,4))
+        plt.figure(figsize = (6,3))
         plt.loglog(reg_param , G)
         plt.loglog(reg_min, minG, '*r')
         plt.xlabel(r'$\lambda$')
@@ -477,7 +499,7 @@ def newton(lambda_0, delta, s, beta, omega, delta_0):
 
 # from scipy.optimize import minimize_scalar
 
-def ncp(U, s, b, method='Tikh', printncp = False):
+def ncp(U, s, b, printncp = False): #method='Tikh', 
     m = U.shape[0]
     p = len(s)
     ps = 1
@@ -517,7 +539,8 @@ def ncp(U, s, b, method='Tikh', printncp = False):
     min_g_id = np.where(dists == min_g)[0][0]
     # print(min_g)
     # print(min_g_id)
-    x1 = dists[int(np.amin(np.array([min_g_id + 1, npoints])))]
+    x1 = dists[int(np.amin(np.array([min_g_id, npoints])))]
+    # x1 = dists[int(np.amin(np.array([min_g_id + 1, npoints])))]
     x2 = dists[int(np.amax([min_g_id - 2, 0]))]
     # print(x1)
     # print(x2)
@@ -546,7 +569,7 @@ def ncp(U, s, b, method='Tikh', printncp = False):
         plt.title(r'$\lambda = {}$'.format(reg_min_result))
         plt.tight_layout()
     
-    return reg_min_result, dist
+    return reg_min_result#, dist
 
 
 def ncpfun(lambda_val, s, beta, U, dsvd=False):
@@ -945,7 +968,8 @@ def mae(x_sol, x_truth):
         mae : float
             estimated MAE
     """
-    mae = np.linalg.norm(x_sol-x_truth)
+    n_el = x_truth.size
+    mae = np.linalg.norm(x_sol-x_truth)/n_el
     return mae
 
 def nmse_freq(x_sol, x_truth):

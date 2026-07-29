@@ -10,3 +10,7 @@ bemflush_fp.py
 parray_estimation.py
 .tmp.driveupload/
 desktop.ini
+*.hdf5
+*.pkl
+*.nbc
+*.nbi

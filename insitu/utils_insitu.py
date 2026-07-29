@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 import matplotlib as mpl
+import scipy
 from scipy.interpolate import griddata
 from controlsair import cart2sph, sph2cart
 try:
@@ -131,7 +132,7 @@ def third_octave_freqs(freq):
     id_lower = np.where(fcentre <= np.amin(freq))[0][-1] + 1
     id_upper = np.where(fcentre <= np.amax(freq))[0][-1]# - 1
     
-    return fcentre[id_lower:id_upper], flower[id_lower:id_upper], fupper[id_lower:id_upper]
+    return fcentre[id_lower:id_upper+1], flower[id_lower:id_upper+1], fupper[id_lower:id_upper+1]
 
 def third_octave_avg(freq, data, magnitude = True):
     """ Returns a list of center frequencies, lower and upper bonds in 1/3 oct band
@@ -1046,7 +1047,7 @@ class Plot3Ddirectivity(object):
                          'thickness' : self.colorbar_thickness, # want control
                          'xanchor' : 'right',
                          'yanchor' : 'middle',
-                         'titlefont': {'color': 'black'}, # want control
+                         # 'titlefont': {'color': 'black'}, # want control
                          'title_side': 'right',
                          'tickangle': -90, 
                          'tickcolor': 'black',
@@ -1610,62 +1611,118 @@ def compare_directivities(pressure_dict , plt3Ddir, nrows = 1, ncols = 1,
                         wspace = wspace, hspace = hspace)
     return fig, axs
     
+def get_random_direction(num_dim = 2):
+    """ Compute a randum unitary direction vector
+    """
+    direction = np.random.uniform(low = -1, high = 1, size = num_dim)
+    direction /= np.linalg.norm(direction)
+    return direction
+
+def move_point(point, direction, distance):
+    """ move a point in a given direction
+    """
+    new_point = point + distance * direction
+    return new_point
+
+def get_max_dist(point, direction, lower_bounds, upper_bounds):
+    """ Determines the max distance allowed
+    """
+    pass
+
+def check_crop_bounding_box(point, lower_bounds, upper_bounds):
+    """ Check if given point is inside the bounding box or not. If not crop it to bb.
+    """
+    # difference
+    lb_check = point - lower_bounds
+    ub_check = upper_bounds - point
     
-    # fig.subplots_adjust(left=0.1, right=0.9, hspace = 0.01, wspace = 0.01)        
-            
-    # spec_dict = [[{'type': 'surface'}]*n_cols]*n_rows
-    # subtitles_tuple = tuple(item for sublist in subtitles for item in sublist)
-    # # set the figure with subplots
-    # figs = make_subplots(rows = n_rows, cols = n_cols, specs = spec_dict, horizontal_spacing = 0.01, 
-    #                       vertical_spacing = 0.01, subplot_titles = subtitles_tuple)
-    # remove_bg_and_axis(figs, n_rows*n_cols)
-    # # Update the camera view of figure
-    # eye = set_camera_eye(figs, view = plt3Ddir.view, eye_user = plt3Ddir.eye_dict)
-    # camera = dict(eye = eye)
+    # if lb_check has negative values, crop to bounding box
+    if (lb_check < 0).any():
+        id_true = np.where(lb_check < 0)[0]
+        # Petubation
+        pertubation = np.random.uniform(low = 0, 
+                                        high = upper_bounds-lower_bounds, 
+                                        size = len(upper_bounds))
+        # Perturbed crop
+        point[id_true] = lower_bounds[id_true] + pertubation[id_true]
+    # if ub_check has negative values, crop to bounding box
+    if (ub_check < 0).any():
+        id_true = np.where(ub_check < 0)[0]
+        # Petubation
+        pertubation = np.random.uniform(low = 0, 
+                                        high = upper_bounds-lower_bounds, 
+                                        size = len(upper_bounds))
+        # Perturbed crop
+        point[id_true] = upper_bounds[id_true] - pertubation[id_true]
+    return point
+      
+def random_move(origin, lower_bounds, upper_bounds):
+    """ Random move (1-time only)
+    """
+    # number of dimensions
+    num_dim = len(origin)
+    # Get random direction
+    direction = get_random_direction(num_dim = num_dim)
+    # Get random distance
+    distance = np.random.uniform(low = 0, high = 1, size = 1)
+    # Move point
+    new_coord = move_point(point = origin, direction = direction, distance = distance)
+    # Check if it is in Bounding box, then crop it to it if not
+    new_coord = check_crop_bounding_box(point = new_coord,
+                                        lower_bounds = lower_bounds, 
+                                        upper_bounds = upper_bounds)
+    return new_coord, direction
+
+def radom_walk(origin, num_walks, lower_bounds, upper_bounds, seed = 0):
+    """ Makes random walk
+    """
+    np.random.seed(seed)
+    num_dim = len(origin)
+    new_coords = np.zeros((num_walks+1, num_dim))
+    new_coords[0,:] = origin
+    directions = np.zeros((num_walks, num_dim))
     
-    # for row in range(n_rows):
-    #     for col in range(n_cols):
-    #         plt3Ddir.pressure = pressure[row][col]
-    #         plt3Ddir.plot_3d_polar()
-    #         for jtr, trace in enumerate(plt3Ddir.fig.data):
-    #             figs.add_trace(trace, row = row+1, col = col+1)
-                
-                
-    # # Update layout for all 3D scenes in a loop
-    # for scene_idx in range(1, n_rows*n_cols+1):  # scene1, scene2, scene3, scene4
-    #     scene_key = f'scene{scene_idx}'
-    #     figs.update_layout({scene_key: dict(aspectmode='data', aspectratio=dict(x=1, y=1, z=1),
-    #                                         camera = camera)})
+    for i in range(num_walks):
+        new_coords[i+1,:], directions[i,:] = random_move(origin = new_coords[i,:], 
+                                                         lower_bounds = lower_bounds, 
+                                                         upper_bounds = upper_bounds)
+        # # Get random direction
+        # directions[i,:] = get_random_direction(num_dim = num_dim)
+        # # Get random distance
+        # distance = np.random.uniform(low = 0, high = 1, size = 1)
+        # # Move point
+        # new_coords[i+1,:] = move_point(point = new_coords[i,:],
+        #                                direction = directions[i,:], distance = distance)
+        # # Check if it is in Bounding box, then crop it to it if not
+        # new_coords[i+1,:] = check_crop_bounding_box(point = new_coords[i+1,:],
+        #                                             lower_bounds = lower_bounds, 
+        #                                             upper_bounds = upper_bounds)
+    return new_coords, directions
 
-    # # Adjust figure dimensions
-    # figs.update_layout(height = n_rows*plt3Ddir.fig_size, width = n_rows*plt3Ddir.fig_size,
-    #                     margin=dict(l=0, r=0, t=50, b=0))
+
     
-
-    # return figs
+def plot_pt_dir2D(point, direction, plot_arrows = True):
+    """ plots the point and direction
+    """
+    # plt.figure(figsize = (6,3))
+    plt.scatter(point[0], point[1], c = 'k', s = 10)
+    if plot_arrows:
+        plt.quiver(point[0], point[1], direction[0], direction[1])
     
-# def crop_whitespace(img):
-#     # Convert image to greyscale to detect differences
-#     gray_img = img.convert("L")  # Convert to grayscale
-#     bg = Image.new("L", img.size, 255)  # Create a plain white background
-#     diff = ImageChops.difference(gray_img, bg)
-#     bbox = diff.getbbox()  # Get bounding box of non-white areas
-#     if bbox:
-#         return img.crop(bbox)
-#     return img  # Return original if no cropping is needed
-
-
-
-# for c, i in enumerate(idf):
-#     # Flat
-#     _, trace = ded_flat_sf.plot_directivity(freq = freq[i], color_method = 'dB', radius_method = 'dB', dinrange = dinrange,
-#         color_code = color_map, view = 'iso_z',  renderer = "notebook", true_directivity = true_directivity)
-#     figs.add_trace(trace, row = 1, col = c+1)
-
-#     # Sphere
-#     _, trace = ded_sphere_sf.plot_directivity(freq = freq[i], color_method = 'dB', radius_method = 'dB', dinrange = dinrange,
-#         color_code = color_map, view = 'iso_z',  renderer = "notebook", true_directivity = true_directivity)
-#     figs.add_trace(trace, row = 2, col = c+1)
+def plot_random_walk_2D(points, directions, plot_arrows = True):
+    """ plots random walk
+    """
+    num_pts = points.shape[0]
+    plt.figure(figsize = (6,3))
+    for i in range(num_pts-1):
+        plot_pt_dir2D(points[i,:], direction = directions[i,:], plot_arrows = plot_arrows)
+    plt.scatter(points[-1,0], points[-1,1], c = 'k', s = 10)
+        
+    plt.grid(linestyle = '--')
+    minimum_range = 1.2*np.amin([np.amin(points[:,0]), np.amin(points[:,1])])
+    maximum_range = 1.2*np.amax([np.amax(points[:,0]), np.amax(points[:,1])])    
+    plt.xlim((minimum_range, maximum_range))
+    plt.ylim((minimum_range, maximum_range))
     
 #     # 4 spheres
 #     _, trace = ded_4spheres.plot_directivity(freq = freq[i], color_method = 'dB', radius_method = 'dB', dinrange = dinrange,
@@ -1673,3 +1730,263 @@ def compare_directivities(pressure_dict , plt3Ddir, nrows = 1, ncols = 1,
 #     figs.add_trace(trace, row = 3, col = c+1)
 # figs.update_layout(height=900, width=1050)
 # figs.show() 
+def give_me_an_ax(figshape = (1, 1), figsize = (6,3)):
+    """ return me a default matplotlib ax
+    """
+    fig, ax = plt.subplots(figsize = figsize,
+                           nrows = figshape[0], ncols = figshape[1],
+                           squeeze = False)
+    return fig, ax
+
+
+def plot_1d_curve(xdata, ydata, ax, xlims = None, ylims = None, 
+                  color = 'tab:blue', linewidth = 1.5, marker = None, 
+                  linestyle = '-', alpha = 1.0, label = None,
+                  xlabel = None, ylabel = None,
+                  linx = True, liny = True, xticks = None):
+    """ plots 1d curve
+    """
+    # Set defaults
+    if xlims is None:
+        xlims = xdata.min(), xdata.max()
+    if ylims is None:
+        ylims = ydata.min(), ydata.max()
+    if linx and liny:
+        ax.plot(xdata, ydata, color = color, linewidth = linewidth, 
+                linestyle = linestyle, alpha = alpha, label = label)
+    elif ~linx and liny:
+        ax.semilogx(xdata, ydata, color = color, linewidth = linewidth, 
+                linestyle = linestyle, alpha = alpha, label = label)
+    elif linx and ~liny:
+        ax.semilogy(xdata, ydata, color = color, linewidth = linewidth, 
+                linestyle = linestyle, alpha = alpha, label = label)
+    else:
+        ax.loglog(xdata, ydata, color = color, linewidth = linewidth, 
+                linestyle = linestyle, alpha = alpha, label = label)
+    ax.grid(linestyle = '--')
+    if label is not None:
+        ax.legend()
+    if xticks is not None:
+        xlabels = [str(num) for num in xticks]
+        ax.set_xticks(xticks, xlabels)
+        ax.minorticks_off()
+    
+    ax.set_xlim(xlims)
+    ax.set_ylim(ylims)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    return ax
+
+def plot_time(fs, sig, ax = None, xlims = None, ylims = None, 
+              color = 'tab:blue', linewidth = 1.5, linestyle = '-',
+              alpha = 1.0, label = None):
+    """ plot time signals (single channel)
+    
+    fs : int
+        Sampling rate
+    sig : numpy1dArray
+        Signal in time dommain - single channel    
+    """
+    # Create axis if axis is None
+    if ax is None:
+        _, ax = give_me_an_ax()
+        ax = ax[0,0]
+    n_samples = len(sig)
+    time = np.linspace(0, (n_samples-1)/fs, n_samples)
+    plot_1d_curve(time, sig, ax, xlims = xlims, ylims = ylims,
+                  color = color, linewidth = linewidth, 
+                  linestyle = linestyle, alpha = alpha, 
+                  label = label, xlabel = "Time [s]", ylabel = "Amplitude",
+                  linx = True, liny = True)
+    return ax
+
+def plot_spk_mag(freq, spk, ax = None, xlims = None, ylims = None, 
+              color = 'tab:blue', linewidth = 1.5, linestyle = '-',
+              alpha = 1.0, label = None):
+    """ plot magnitude spectrum of signals in dB (single channel)
+    
+    freq : numpy1dArray
+        frequency vector
+    spk_mag : numpy1dArray
+        spectrum   
+    """
+    # Create axis if axis is None
+    if ax is None:
+        _, ax = give_me_an_ax()
+        ax = ax[0,0]
+    spk_mag_dB = 20*np.log10(np.abs(spk)) 
+    plot_1d_curve(freq, spk_mag_dB, ax, xlims = xlims, ylims = ylims,
+                  color = color, linewidth = linewidth, 
+                  linestyle = linestyle, alpha = alpha, 
+                  label = label, xlabel = "Frequency [Hz]", ylabel = "Magnitude [dB]",
+                  linx = False, liny = True)
+    return ax
+
+def plot_spk_mag_pha(freq, spk, ax = None, xlims = None, ylims = None, 
+              color = 'tab:blue', linewidth = 1.5, linestyle = '-',
+              alpha = 1.0, label = None):
+    """ plot spectrum of signals Magnitude and phase (single channel)
+    
+    freq : numpy1dArray
+        frequency vector
+    spk_mag : numpy1dArray
+        spectrum   
+    """
+    # Create axis if axis is None
+    if ax is None:
+        _, ax = give_me_an_ax(figshape = (1, 2), figsize = (10,3))
+
+    spk_mag_dB = 20*np.log10(np.abs(spk))
+    spk_pha = np.rad2deg(np.angle(spk))
+    # plot mag
+    plot_1d_curve(freq, spk_mag_dB, ax[0,0], xlims = xlims, ylims = ylims,
+                  color = color, linewidth = linewidth, 
+                  linestyle = linestyle, alpha = alpha, 
+                  label = label, xlabel = "Frequency [Hz]", ylabel = "Magnitude [dB]",
+                  linx = False, liny = True)
+    # plot phase
+    plot_1d_curve(freq, spk_pha, ax[0,1], xlims = xlims, ylims = ylims,
+                  color = color, linewidth = linewidth, 
+                  linestyle = linestyle, alpha = alpha, 
+                  label = label, xlabel = "Frequency [Hz]", ylabel = "Phase [deg.]",
+                  linx = False, liny = True)    
+    return ax
+
+def plot_spk_re_imag(freq, spk, ax = None, xlims = None, ylims = None, 
+              color = 'tab:blue', linewidth = 1.5, linestyle = '-',
+              alpha = 1.0, label = None):
+    """ plot spectrum of signals Real and Imag (single channel)
+    
+    freq : numpy1dArray
+        frequency vector
+    spk_mag : numpy1dArray
+        spectrum   
+    """
+    # Create axis if axis is None
+    if ax is None:
+        _, ax = give_me_an_ax(figshape = (1, 2), figsize = (10,3))
+
+    spk_re = np.real(spk)
+    spk_im = np.imag(spk)
+    # plot real
+    plot_1d_curve(freq, spk_re, ax[0,0], xlims = xlims, ylims = ylims,
+                  color = color, linewidth = linewidth, 
+                  linestyle = linestyle, alpha = alpha, 
+                  label = label, xlabel = "Frequency [Hz]", ylabel = "Real [-]",
+                  linx = False, liny = True, 
+                  xticks = [31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000])
+    # plot imag
+    plot_1d_curve(freq, spk_im, ax[ax.shape[0]-1,ax.shape[1]-1], 
+                  xlims = xlims, ylims = ylims,
+                  color = color, linewidth = linewidth, 
+                  linestyle = linestyle, alpha = alpha, 
+                  label = label, xlabel = "Frequency [Hz]", ylabel = "Imag. [-]",
+                  linx = False, liny = True, 
+                  xticks = [31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000])    
+    return ax
+
+def plot_absorption(freq, abs_coeff, ax = None, xlim = None, ylim = None, 
+                    color = 'tab:blue', linewidth = 1.5, linestyle = '-',
+                    alpha = 1.0, label = None):
+    """ Plot absorption coefficient
+    
+    Parameters
+    ----------
+    ax : matplotlib axes or None
+    """    
+    # Create axis if axis is None
+    if ax is None:
+        _, ax = give_me_an_ax()
+        ax = ax[0,0]
+    
+    plot_1d_curve(freq, abs_coeff, ax, xlims = xlim, ylims = ylim,
+                  color = color, linewidth = linewidth, 
+                  linestyle = linestyle, alpha = alpha, 
+                  label = label, xlabel = "Frequency [Hz]", 
+                  ylabel = r"$\alpha$  [-]",
+                  linx = False, liny = True, 
+                  xticks = [31.5, 63, 125, 250, 500, 1000, 2000, 4000])
+    return ax
+
+def plot_absorption_theta(theta, abs_coeff, ax = None, xlim = None, ylim = None,
+                          color = 'tab:blue', linewidth = 1.5, linestyle = '-',
+                          alpha = 1.0, label = None):
+    """ Plot absorption coefficient as a function of the incidence angle
+    
+    Parameters
+    ----------
+    ax : matplotlib axes or None
+    """    
+    # Create axis if axis is None
+    if ax is None:
+        _, ax = give_me_an_ax()
+        ax = ax[0,0]
+    
+    plot_1d_curve(theta, abs_coeff, ax, ylims = (-0.2, 1.2),
+                  color = color, linewidth = linewidth, 
+                  linestyle = linestyle, alpha = alpha, 
+                  label = label, xlabel = r"$\theta$ [deg]", ylabel = r"$\alpha$  [-]",
+                  linx = True, liny = True, xticks = np.arange(0, 105, 15))
+    return ax
+# from numba import njit 
+# @njit
+def MPM(samp, L, Ts, tol):
+    """ Matrix Pencil Method (implemented by Martin Eser - JASA 2021)
+    
+    Parameters
+    ----------
+    samp : numpy1dArray
+        Samples of the variable of interest
+    L : int
+        Pencil Parameter
+    Ts : float
+        Sampling period
+    tol : float
+        Tolerance for SVD truncation
+    
+    Parameters
+    ----------
+    An : numpy1dArray
+        Amplitudes in transformed space
+    Bn : numpy1dArray
+        Locations in transformed space
+    """
+    # samp: samples of reflection coefficient; sampled at each K_z0 calculated from t
+    # L: pencil parameter
+    # Ts: sampling rate deltat in Eser, 2021
+    # tol: SVD truncation threshold
+
+    Y = scipy.linalg.hankel(samp)[: len(samp) - L, : L + 1]  # full Hankel matrix
+    U, s, Vh = np.linalg.svd(Y)  # singular value decomposition (SVD) of Hankel matrix
+    indx = np.where(s < s.max() * tol)[0][
+        0
+    ]  # truncation of SVD given prescribed threshold tol
+    Vpr = Vh.conj().T[:, :indx]  # V^f in Eser, 2021
+
+    V1pr = Vpr[:-1, :]  # V_1^fH in Eser, 2021
+    V2pr = Vpr[1:, :]  # V_2^fH in Eser, 2021
+    spr = np.zeros((np.shape(U)[0], np.shape(V1pr)[-1]))  # Sigma^f in Eser, 2021
+    np.fill_diagonal(spr, s[:indx])
+    Y1 = (U.dot(spr)).dot(V1pr.conj().T)
+    Y2 = (U.dot(spr)).dot(V2pr.conj().T)
+
+    poles = scipy.linalg.eigvals(
+        np.dot(scipy.linalg.pinv(Y1), Y2)
+    )  # Eq. (15) in Eser, 2021
+    poles = poles[:indx]  # z_n in Eser, 2021
+
+    # alp = np.log(np.abs(poles[:]))/(Ts)
+    # freqs = np.arctan2(np.imag(poles[:]),np.real(poles[:]))/(2*np.pi*Ts)
+    # Bn = (alp+1j*(2*np.pi*freqs))*Ts
+    Bn = np.log(poles[:]) / Ts  # Eq. (16) in Eser, 2021
+
+    Vrhs = np.array((samp))  # right hand side of Eq. (17) in Eser, 2021
+    Van = np.vstack(
+        [poles ** (i) for i in range(np.shape(samp)[0])]
+    )  # Vandermonde matrix in Eq. (17) in Eser, 2021
+    # calculate An from least-squares Vandermonde system
+    An = np.linalg.lstsq(Van, Vrhs, rcond=None)[0]  # Solution of Eq. (17) in Eser, 2021
+
+    return An, Bn  # output of sought coeffcients of the series of exponentials
+    
+   

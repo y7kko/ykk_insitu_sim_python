@@ -666,15 +666,15 @@ class DecompositionEv2(object):
             kz evanescent waves
         """
         # Stack evanescent kz with propagating kz for incident and reflected grids
-        k_prop_inc = k0 * np.array([self.prop_waves_dir.coord[:,0], 
-                                              self.prop_waves_dir.coord[:,1],
-                                              -self.prop_waves_dir.coord[:,2]]).T
+        k_prop_inc = k0 * np.array([self.prop_waves_dir.coord[:,0],
+                                    self.prop_waves_dir.coord[:,1],
+                                    -self.prop_waves_dir.coord[:,2]]).T
         k_evan_inc = np.array([kx_ev, ky_ev, -kz_ev]).T
         k_vec_inc = np.vstack((k_prop_inc, k_evan_inc))
         # Reflected
         k_prop_ref = k0 * np.array([self.prop_waves_dir.coord[:,0], 
-                                              self.prop_waves_dir.coord[:,1], 
-                                              self.prop_waves_dir.coord[:,2]]).T
+                                    self.prop_waves_dir.coord[:,1], 
+                                    self.prop_waves_dir.coord[:,2]]).T
         k_evan_ref = np.array([kx_ev, ky_ev, kz_ev]).T
         k_vec_ref = np.vstack((k_prop_ref, k_evan_ref))
         return k_vec_inc, k_vec_ref
@@ -1871,12 +1871,6 @@ class DecompositionEv2(object):
             plot_elevation_grid = True, font_family = "Palatino Linotype", font_size = 14,
             colorbar_title = 'Normalized Scattered Pressure [dB]', fig_size=dpi)
         plt3Ddir.plot_3d_polar()
-        # #return balloon_data #x, y, z, conectivities, r, plot_pressure
-        # fig, trace = utils_insitu.plot_3d_polar(self.pdir, self.conectivities,
-        #      pk_r, dinrange = dinrange, 
-        #      color_method = color_method, radius_method = radius_method,
-        #      color_code = color_code, view = view, eye = eye, renderer = renderer,
-        #      remove_axis = remove_axis)
         return plt3Ddir.fig, plt3Ddir.trace
 
 
