@@ -368,8 +368,13 @@ class Decomposition(object):
     
         print(f"starting from idx = {self.last_computed_index}")
         bar = tqdm(total = len(self.controls.k0), 
-                   desc = 'Calculating Tikhonov inversion...')
-        bar.update(np.clip(self.last_computed_index, 0, len(self.controls.k0)))
+                   desc = 'Calculating Tikhonov inversion...',
+                   miniters = 50,
+                   bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}" +
+     " [{elapsed}<{remaining}, {rate_noinv_fmt}]")
+        bar.update(np.clip(self.last_computed_index, 0, len(self.controls.k0)),
+                   
+                   )
         
         for jf, k0 in enumerate(self.controls.k0):
             if jf<= self.last_computed_index:
