@@ -330,7 +330,7 @@ class Decomposition(object):
 
         if cached:
             try:
-                print("loading last session...")
+                print(":: loading last session...")
 
                 if _dagshub_enabled:
                     print("Searching for dagshub backups...")
@@ -352,7 +352,7 @@ class Decomposition(object):
 
         # if cache not found and pk is not initialized 
         if not cached and not hasattr(self,'pk'):
-            print("initializing new arrays")
+            print(":: initializing new arrays")
             self.pk = np.zeros((self.n_waves, len(self.controls.k0)), dtype=complex)
             self.lambd_value_vec = np.zeros(len(self.controls.k0))
             self.cond_num = np.zeros(len(self.controls.k0))
@@ -420,68 +420,6 @@ class Decomposition(object):
         dagshub_upload()
         bar.close()
 
-        return self.pk
-
-
-    def pk_tikhonov_faster(self, method = 'direct', plot_l = False):
-        """ Wave number spectrum estimation using Tikhonov inversion
-
-        Estimate the wave number spectrum using regularized Tikhonov inversion.
-        The choice of the regularization parameter is baded on the L-curve criterion.
-        This sound field is modelled by a set of propagating waves. This
-        method is an adaptation of DTU methods, implemented in:
-            Mélanie Nolan. Estimation of angle-dependent absorption coefficients 
-            from spatially distributed in situ measurements , J Acoust Soc Am (EL).
-            2019 147(2):EL119-EL124. doi: 10.1121/10.0000716 
-
-        The inversion steps are: (i) - Get the scaled version of the propagating directions;
-        (ii) - form the sensing matrix; (iii) - compute SVD of the sensing matix;
-        (iv) - compute the regularization parameter (L-curve); (vii) - matrix inversion.
-
-        Parameters
-        ----------
-        method : str
-            Determines which method to use to compute the pseudo-inverse.
-                'direct' (default) - analytical solution - fastest, but maybe
-                inacurate on noiseless situations. The following uses optimization 
-                algorithms
-                'scipy' - uses scipy.linalg.lsqr (sparse matrix) -fast but less acurate
-                'Ridge - uses sklearn Ridge regression - slower, but accurate.
-                'cvx' - uses cvxpy - slower, but accurate.
-        plot_l : bool
-            Whether to plot the L-curve or not. Default is false.
-        """
-        self.decomp_type = 'Tikhonov (transparent array)'
-        bar = tqdm(total = len(self.controls.k0), desc = 'Calculating Tikhonov inversion...')
-        # Initialize variables
-        self.pk = np.zeros((self.n_waves, len(self.controls.k0)), dtype=complex)
-        self.lambd_value_vec = np.zeros(len(self.controls.k0))
-        self.cond_num = np.zeros(len(self.controls.k0))
-        # loop over frequencies
-        for jf, k0 in enumerate(self.controls.k0):
-            # get the scaled version of the propagating directions
-            k_vec = k0 * self.dir
-            # Form the sensing matrix
-            h_mtx = np.exp(-1j*self.receivers.coord @ k_vec.T)
-            self.cond_num[jf] = np.linalg.cond(h_mtx)
-            # measured data
-            pm = self.pres_s[:,jf].astype(complex)
-            # compute SVD of the sensing matix
-            u, sig, v = lc.csvd(h_mtx)
-            # compute the regularization parameter (L-curve)
-            # lambd_value = lc.l_cuve(u, sig, pm, plotit=plot_l)
-            #lambd_value = lc.gcv_lambda(u, sig, pm, print_gcvfun = plot_l)
-
-            lambd_value = self.regu_par_fun(u, sig, pm, plot_l)
-            self.lambd_value_vec[jf] = lambd_value
-            # lambd_value = lc.ncp(u, sig, pm, method='Tikh', printncp = plot_l)
-            ## Choosing the method to find the P(k)
-            
-            x = lc.ridge_solver(h_mtx,pm,lambd_value)
-            self.pk[:,jf] = x
-            
-            bar.update(1)
-        bar.close()
         return self.pk
 
     def pk_constrained(self, snr=30, headroom = 0):
