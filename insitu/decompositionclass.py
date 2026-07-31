@@ -41,14 +41,7 @@ except:
 # plt.rc('xtick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
 # plt.rc('ytick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
 # plt.rc('figure', titlesize=BIGGER_SIZE)
-class Decomposition(PPWE):
-    def __init__(self, *args, **kwargs):
-        warnings.warn(
-            "A classe 'Decomposition' está depreciada. Use 'PPWE' em vez disso.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        super().__init__(*args, **kwargs)
+
 
 class PPWE(object):
     """ Decomposition of the sound field using ony propagating waves.
@@ -1047,3 +1040,11 @@ def objective_fn(H, pm, x, lambd):
     return loss_fn(H, pm, x) + lambd * regularizer(x)
 
 
+class Decomposition(PPWE):
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "A classe 'Decomposition' está depreciada. Use 'PPWE' em vez disso.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
