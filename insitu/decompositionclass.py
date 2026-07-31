@@ -29,6 +29,8 @@ try:
     print("DAGSHUB ENABLED")
 except:
     _dagshub_enabled = False
+
+import warnings
 # SMALL_SIZE = 11
 # BIGGER_SIZE = 13
 # #plt.rcParams.update({'font.size': 10})
