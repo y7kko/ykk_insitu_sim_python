@@ -386,8 +386,12 @@ class PPWE(object):
         self.decomp_type = 'Tikhonov (transparent array)'
         
         if _dagshub_enabled:
-            mount_path = dagshub.storage.mount(cloud_kw['repo'])
-            mount_path = str(mount_path)
+            from dagshub.streaming import install_hooks
+            install_hooks(repo_url=f'https://dagshub.com/{cloud_kw['repo']}', 
+                          project_root="/dagshub_tmp")
+            user,repo_name = cloud_kw['repo'].split('/')
+            backup_path = f'/dagshub_tmp/s3://{repo_name}'
+
             dagshub_upload = (
                 lambda : dagshub.upload_files(**{
                     **{'commit_message':f'Checkpoint: {self.last_computed_index}pt',
@@ -404,11 +408,9 @@ class PPWE(object):
 
                 if _dagshub_enabled:
                     print("Searching for dagshub backups...")
-                    # mount_path = dagshub.storage.mount(cloud_kw['repo'])
-                    # mount_path = str(mount_path)
 
                     self.load(save_kw['filename'],
-                              path=f'{mount_path}/')                    
+                              path=f'{backup_path}/')                    
                     print('Loaded from dagshub!!')
                 else:
                     print("Searching for local backups...")
@@ -432,7 +434,7 @@ class PPWE(object):
         print(f"starting from idx = {self.last_computed_index}")
         bar = tqdm(total = len(self.controls.k0), 
                    desc = 'Calculating Tikhonov inversion...',
-                   miniters = 50,
+                   mininterval=1,
                    bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}" +
      " [{elapsed}<{remaining}, {rate_noinv_fmt}]")
         bar.update(np.clip(self.last_computed_index, 0, len(self.controls.k0)),
