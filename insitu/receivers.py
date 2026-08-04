@@ -369,7 +369,7 @@ class Receiver():
         self.coord[n_x*n_y:, 0] = xv.flatten()
         self.coord[n_x*n_y:, 1] = yv.flatten()
         self.coord[n_x*n_y:, 2] = zr + dz
-         
+    
     def brick_array(self, x_len = 1.0, n_x = 8, y_len = 1.0, n_y = 8, z_len = 1.0, n_z = 8, zr = 0.1):
         """ Initializes a regular 3D array of receivers on a parallelepipid.
 
@@ -846,6 +846,32 @@ class Receiver():
         self.correct_normals()
         self.compute_triangle_areas()
         self.compute_all_triangle_angles()
+
+    def spherical_array(self, radius = 1, n_rec_target = 32,zr=0.0):
+        """ Initializes a hemispherical array of receivers (icosahedron).
+
+        Receiver hemisphere with a given radius and target number of receivers.
+        you might get more. 
+        The method will overwrite self.coord to be a matrix where each line
+        gives a 3D coordinate for each receiver
+
+        Parameters
+        ----------
+            radius : float
+                the radius of the sphere
+            n-rec : int
+                the number of receivers in the array
+            center_dist : float
+                distance from the origin to the center of the array
+        """
+        directions = RayInitialDirections()
+        directions, n_sph, elements = directions.isotropic_rays(Nrays = int(n_rec_target))
+        # elements = directions.indices
+        self.coord = directions
+        r, theta, phi = cart2sph(self.coord[:,0], self.coord[:,1], self.coord[:,2])
+        r = radius*r
+        self.coord[:,0], self.coord[:,1], self.coord[:,2] = sph2cart(r,theta,phi)
+        self.coord[:,2] += zr
         
     def connectivity_correction(self,):
         """ Connectivity correction for mesh plotting
