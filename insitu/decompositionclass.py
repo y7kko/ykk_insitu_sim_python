@@ -387,8 +387,11 @@ class PPWE(object):
         
         if _dagshub_enabled:
             from dagshub.streaming import install_hooks
-            install_hooks(repo_url=f'https://dagshub.com/{cloud_kw['repo']}', 
-                          project_root="/dagshub_tmp")
+            try:
+                install_hooks(repo_url=f'https://dagshub.com/{cloud_kw['repo']}', 
+                            project_root="/dagshub_tmp")
+            except:
+                print('Hooks alterady installed or smth')
             user,repo_name = cloud_kw['repo'].split('/')
             backup_path = f'/dagshub_tmp/s3://{repo_name}'
 
