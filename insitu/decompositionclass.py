@@ -388,7 +388,8 @@ class PPWE(object):
         if _dagshub_enabled:
             from dagshub.streaming import install_hooks
             try:
-                install_hooks(repo_url=f'https://dagshub.com/{cloud_kw['repo']}', 
+                repo_arg = cloud_kw['repo']
+                install_hooks(repo_url=f'https://dagshub.com/{repo_arg}', 
                             project_root="/dagshub_tmp")
             except:
                 print('Hooks alterady installed or smth')
