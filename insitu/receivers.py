@@ -369,7 +369,7 @@ class Receiver():
         self.coord[n_x*n_y:, 0] = xv.flatten()
         self.coord[n_x*n_y:, 1] = yv.flatten()
         self.coord[n_x*n_y:, 2] = zr + dz
-    
+         
     def brick_array(self, x_len = 1.0, n_x = 8, y_len = 1.0, n_y = 8, z_len = 1.0, n_z = 8, zr = 0.1):
         """ Initializes a regular 3D array of receivers on a parallelepipid.
 
@@ -1348,7 +1348,6 @@ class Receiver():
         You can instantiate an empty object of the class and load a saved one.
         It will overwrite the empty object.
         """
-        utils_insitu.load(self, filename = filename, path = path)   
         utils_insitu.load(self, filename = filename, path = path)
         
 class PlatonicSampler():

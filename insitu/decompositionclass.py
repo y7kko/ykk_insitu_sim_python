@@ -5,14 +5,16 @@ import matplotlib.pyplot as plt
 # import scipy.integrate as integrate
 # import scipy as spy
 # from sklearn.linear_model import Ridge
-import time
+# import time
 from tqdm import tqdm
-import sys
+# import sys
 # from progress.bar import Bar, IncrementalBar, FillingCirclesBar, ChargingBar
 #from tqdm._tqdm_notebook import tqdm
-import cvxpy as cp
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
+#import cvxpy as cp
 # from scipy import linalg # for svd
 # from scipy import signal
+# from scipy.sparse.linalg import lsqr, lsmr
 # from lcurve_functions import csvd, l_cuve, tikhonov, ridge_solver, direct_solver
 import lcurve_functions as lc
 import yk_lcurve_functions as ylc
@@ -43,7 +45,6 @@ import warnings
 # plt.rc('xtick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
 # plt.rc('ytick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
 # plt.rc('figure', titlesize=BIGGER_SIZE)
-
 
 class PPWE(object):
     """ Decomposition of the sound field using ony propagating waves.
@@ -151,11 +152,8 @@ class PPWE(object):
         self.receivers = receivers
         self.pres_s = p_mtx
         self.flag_oct_interp = False
-
         # BRUNO
         self.last_computed_index = 0
-
-
         if regu_par.lower() == 'L-curve':
             self.regu_par_fun = lc.l_curve
             print("You choose L-curve to find optimal regularization parameter")
@@ -889,7 +887,7 @@ class PPWE(object):
             travel : bool
                 Whether to plot travel direction or arrival direction. Default is True
         """
-        id_f = np.where(self.controls.freq <= freq) 
+        id_f = np.where(self.controls.freq <= freq)
         id_f = id_f[0][-1]
         fig = plt.figure()
         ax = plt.axes(projection ="3d")

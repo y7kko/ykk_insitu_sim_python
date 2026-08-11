@@ -880,6 +880,18 @@ def diffusion_coef_norm(d_coef_sample, d_coef_ref):
     norm_gamma = (d_coef_sample - d_coef_ref)/(1-d_coef_ref)
     return norm_gamma
 
+def scattering_coef_angdep(frequency, p_sample, p_ref):
+    """ Computes angle dependent scattering coefficient
+    """
+    n_freq = len(frequency)
+    scatt_coeff = np.zeros(n_freq)
+    for jf in range(n_freq):
+        sum_mod2_sample = np.sum(np.abs(p_sample[:, jf])**2)
+        sum_mod2_ref = np.sum(np.abs(p_ref[:, jf])**2)
+        sum_corr = np.abs(np.sum(p_sample[:, jf]*np.conj(p_ref[:, jf])))**2
+        scatt_coeff[jf] = 1-sum_corr/(sum_mod2_sample * sum_mod2_ref)
+    return scatt_coeff
+
 def save(obj, filename = 'fname', path = ''):
     """ To save the decomposition object as pickle
 
@@ -1724,12 +1736,6 @@ def plot_random_walk_2D(points, directions, plot_arrows = True):
     plt.xlim((minimum_range, maximum_range))
     plt.ylim((minimum_range, maximum_range))
     
-#     # 4 spheres
-#     _, trace = ded_4spheres.plot_directivity(freq = freq[i], color_method = 'dB', radius_method = 'dB', dinrange = dinrange,
-#         color_code = color_map, view = 'iso_z',  renderer = "notebook", true_directivity = true_directivity)
-#     figs.add_trace(trace, row = 3, col = c+1)
-# figs.update_layout(height=900, width=1050)
-# figs.show() 
 def give_me_an_ax(figshape = (1, 1), figsize = (6,3)):
     """ return me a default matplotlib ax
     """
