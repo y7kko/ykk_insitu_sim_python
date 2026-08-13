@@ -154,8 +154,14 @@ class PPWE(object):
         self.flag_oct_interp = False
         # BRUNO
         self.last_computed_index = 0
-        if regu_par.lower() == 'L-curve':
-            self.regu_par_fun = lc.l_curve
+        if regu_par.lower() == 'l-curve':
+            # self.regu_par_fun = lc.l_curve
+            self.regu_par_fun = lambda *args,**kwargs:(lc.l_curve(*args,
+                                                                  **{
+                                                                      **regu_kw,
+                                                                      **kwargs
+                                                                      })
+                                                                      )
             print("You choose L-curve to find optimal regularization parameter")
         elif regu_par.lower() == 'gcv':
             self.regu_par_fun = lc.gcv_lambda
@@ -166,7 +172,7 @@ class PPWE(object):
             print(f"You choose (ykk) L-curve thresh={ylc._reguparam_thresh}")        
         else:
             self.regu_par_fun = lc.l_curve
-            print("Returning to default L-curve to find optimal regularization parameter")
+            print("Returning to default L-curve to find optimal regularization parameter, no kwargs applied")
             
     def iso_wavenum_dir(self, n_waves = 642, plot = False, halfsphere = False):
         """ Create the propagating wave number directions
