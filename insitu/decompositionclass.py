@@ -462,7 +462,7 @@ class PPWE(object):
             u, sig, v = lc.csvd(h_mtx)
             # compute the regularization parameter (L-curve)
             
-            lambd_value = self.regu_par_fun(u, sig, pm, plot_l)
+            lambd_value = self.regu_par_fun(u, sig, pm)
             self.lambd_value_vec[jf] = lambd_value
 
             if method == 'direct':
