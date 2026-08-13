@@ -46,6 +46,8 @@ import warnings
 # plt.rc('ytick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
 # plt.rc('figure', titlesize=BIGGER_SIZE)
 
+
+
 class PPWE(object):
     """ Decomposition of the sound field using ony propagating waves.
 
@@ -156,12 +158,8 @@ class PPWE(object):
         self.last_computed_index = 0
         if regu_par.lower() == 'l-curve':
             # self.regu_par_fun = lc.l_curve
-            self.regu_par_fun = lambda *args,**kwargs:(lc.l_curve(*args,
-                                                                  **{
-                                                                      **regu_kw,
-                                                                      **kwargs
-                                                                      })
-                                                                      )
+            self.regu_par_fun = lc.l_curve
+            self.lcurve_kw = regu_kw
             print("You choose L-curve to find optimal regularization parameter")
         elif regu_par.lower() == 'gcv':
             self.regu_par_fun = lc.gcv_lambda
@@ -359,7 +357,7 @@ class PPWE(object):
         bar.close()
     
     def pk_tikhonov_colab(self, method = 'direct', plot_l = False,
-                          save_every:int =0, save_kw:dict={},cached:bool=True,cloud_kw:dict={}):
+                          save_every:int =0, save_kw:dict={},cached:bool=True,cloud_kw:dict={},regu_par_kw={}):
         """ Wave number spectrum estimation using Tikhonov inversion
 
         Estimate the wave number spectrum using regularized Tikhonov inversion.
@@ -462,7 +460,7 @@ class PPWE(object):
             u, sig, v = lc.csvd(h_mtx)
             # compute the regularization parameter (L-curve)
             
-            lambd_value = self.regu_par_fun(u, sig, pm)
+            lambd_value = self.regu_par_fun(u, sig, pm,**regu_par_kw)
             self.lambd_value_vec[jf] = lambd_value
 
             if method == 'direct':
